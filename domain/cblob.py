@@ -22,9 +22,9 @@ def extract_itmrefs(rows: Iterable[Any]) -> set[str]:
     return out
 
 
-def extract_blobs(rows: Iterable[Any]) -> Iterator[tuple[str, str]]:
+def extract_blobs(rows: Iterable[Any]) -> Iterator[tuple[str, Any]]:
     """
-    Extrae pares (itmref, blob_hex) desde dicts o tuplas.
+    Extrae pares (itmref, blob) desde dicts o tuplas.
     """
     for row in rows:
         if isinstance(row, dict):
@@ -36,4 +36,5 @@ def extract_blobs(rows: Iterable[Any]) -> Iterator[tuple[str, str]]:
         if itmref is None or blob is None:
             continue
 
-        yield str(itmref), str(blob)
+        yield str(itmref), blob
+

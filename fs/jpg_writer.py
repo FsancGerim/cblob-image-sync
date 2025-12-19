@@ -2,7 +2,7 @@ from pathlib import Path
 import ast
 import re
 
-def blob_to_bytes(blob) -> bytes:
+def _blob_to_bytes(blob) -> bytes:
     # bytes reales
     if isinstance(blob, (bytes, bytearray, memoryview)):
         return bytes(blob)
@@ -30,7 +30,7 @@ def write_jpg(blob, out_path: str | Path, overwrite: bool = False) -> Path:
     if out.exists() and not overwrite:
         return out
 
-    data = blob_to_bytes(blob)
+    data = _blob_to_bytes(blob)
 
     tmp = out.with_suffix(out.suffix + ".tmp")
     tmp.write_bytes(data)

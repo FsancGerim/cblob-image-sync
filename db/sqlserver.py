@@ -1,4 +1,5 @@
 import pyodbc
+from typing import Iterable
 
 from config import (
     SQL_SERVER,
@@ -20,29 +21,51 @@ def _get_connection():
     )
     return pyodbc.connect(conn_str, timeout=10, autocommit=True)
 
-def get_itmref_from_cblob():
-    sql="""
-    SELECT IDENT1_0 AS ITMREF_0 FROM GERIMPORT.CBLOB;
-    """
+def get_itmref_from(table_name: str):
+    if table_name == 'ZPROVEART':
+        sql = """
+        SELECT
+            ZTP.ITMREF_0 AS ITMREF_0
+        FROM ZTPROVEART AS ZTP
+        LEFT JOIN BPSUPPLIER AS BPS
+            ON ZTP.BPSNUM_0 = BPS.BPSNUM_0
+        LEFT JOIN ZURLIMAGENES AS ZURL
+            ON ZTP.ITMREF_0 = ZURL.ITMREF_0
+        LEFT JOIN ZPROART4 AS Z4
+            ON ZTP.ITMREF_0 = Z4.ITMREF_0
+        WHERE COALESCE(ZTP.BPSNUM_0, '') <> '';
+        """
+    elif table_name == 'CBLOB':
+        sql = "SELECT IDENT1_0 AS ITMREF_0 FROM GERIMPORT.CBLOB"
+    else:
+        raise ValueError(f"Tabla no soportada: {table_name}")
+    
     with _get_connection() as conn:
         cur = conn.cursor()
         cur.execute(sql)
         return {str(itmref) for (itmref,) in cur}
 
-def get_blobs():
-    sql="""
-    SELECT TOP 1 IDENT1_0 AS ITMREF_0, BLOB_0 FROM GERIMPORT.CBLOB;
+def _chunks(seq: list[str], size: int):
+    for i in range(0, len(seq), size):
+        yield seq[i:i+size]
+def get_blobs_by_itmrefs(itmrefs: Iterable[str], chunk_size: int = 1000):
+    itmrefs = [str(x) for x in itmrefs]
+
+    sql_template = """
+        SELECT IDENT1_0 AS ITMREF_0, BLOB_0
+        FROM GERIMPORT.CBLOB
+        WHERE IDENT1_0 IN ({placeholders})
     """
+
     with _get_connection() as conn:
         cur = conn.cursor()
-        cur.execute(sql)
-        cols = [c[0] for c in cur.description]
-        return [dict(zip(cols, row)) for row in cur.fetchall()]
 
+        for chunk in _chunks(itmrefs, chunk_size):
+            placeholders = ",".join(["?"] * len(chunk))
+            sql = sql_template.format(placeholders=placeholders)
 
-if __name__ == "__main__":
-    print("funcionando")
-    test = get_blobs()
-    itmrefs = [row["ITMREF_0"] for row in test]
-    print(itmrefs)
+            cur.execute(sql, chunk)
+            for itmref, blob in cur:
+                yield str(itmref), blob
+
     
