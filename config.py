@@ -23,3 +23,11 @@ CLEANUP_LOG_FILE = Path("logs/cleanup_results.log")
 NAS_SHARE = os.environ.get("NAS_SHARE")  
 NAS_USER = os.environ.get("NAS_USER")
 NAS_PASS = os.environ.get("NAS_PASS")
+
+# CORREO
+MAIL_TO = os.getenv("MAIL_TO", "").split(",")
+MAIL_FROM = os.getenv("MAIL_FROM")
+SMTP_SERVER = os.getenv("SMTP_SERVER")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USER = os.getenv("SMTP_USER")
+SMTP_PASS = os.getenv("SMTP_PASS")

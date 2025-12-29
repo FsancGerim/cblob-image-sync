@@ -3,7 +3,16 @@ from __future__ import annotations
 import time
 from dataclasses import asdict
 
-from config import NAS_FOLDER, RESULT_LOG_FILE
+from config import (
+    NAS_FOLDER,
+    MAIL_TO,
+    MAIL_FROM,
+    SMTP_SERVER,
+    SMTP_PORT,
+    SMTP_USER,
+    SMTP_PASS,
+    RESULT_LOG_FILE,
+)
 from logging_config import setup_logger
 from db.sqlserver import get_itmref_from, get_blobs_by_itmrefs
 from domain.cblob import extract_itmrefs
@@ -12,6 +21,7 @@ from fs.images import get_jpg_names
 from fs.jpg_writer import write_jpg
 from fs.result_writer import SyncResultWriter
 from infra.smb import ensure_smb_connection
+from infra.email import send_mail
 
 log = setup_logger()
 
@@ -24,29 +34,39 @@ def run_sync(dry_run: bool = True, chunk_size: int = 1000) -> Metrics:
     result_writer = SyncResultWriter(RESULT_LOG_FILE)
     log.info("Inicio sync | dry_run=%s | NAS_FOLDER=%s", dry_run, NAS_FOLDER)
 
+    # 1) ITMREFs desde ZPRO
     itmref_zpr = extract_itmrefs(get_itmref_from("ZPROVEART"))
     m.db_itmrefs_total = len(itmref_zpr)
 
+    # 2) ITMREFs existentes en NAS (JPGs)
     t_scan = time.perf_counter()
     itmref_nas = get_jpg_names(NAS_FOLDER)
     m.t_scan_nas_seconds = time.perf_counter() - t_scan
     m.nas_jpg_total = len(itmref_nas)
 
+    # 3) Diferencia
     missing = itmref_zpr - itmref_nas
     m.missing_total = len(missing)
 
-    log.info("ZPRO=%d | NAS=%d | FALTANTES=%d | scan_nas=%.2fs",
-             m.db_itmrefs_total, m.nas_jpg_total, m.missing_total, m.t_scan_nas_seconds)
+    log.info(
+        "ZPRO=%d | NAS=%d | FALTANTES=%d | scan_nas=%.2fs",
+        m.db_itmrefs_total, m.nas_jpg_total, m.missing_total, m.t_scan_nas_seconds
+    )
 
     if dry_run:
         log.info("DRY RUN activo. Ejemplo faltantes: %s", list(missing)[:10])
         m.t_total_seconds = time.perf_counter() - t0
         log.info("METRICS: %s", asdict(m))
+
+        # Si NO quieres mandar mail en dry-run, comenta este bloque
+        _send_sync_email(m, dry_run=True)
+
         return m
 
     output_folder = NAS_FOLDER
     log.info("OUTPUT_FOLDER=%s", output_folder)
 
+    # 4) Traer blobs y crear JPGs
     t_fetch = time.perf_counter()
     for i, (itmref, blob) in enumerate(get_blobs_by_itmrefs(missing, chunk_size=chunk_size), start=1):
         m.blobs_fetched_total += 1
@@ -76,13 +96,55 @@ def run_sync(dry_run: bool = True, chunk_size: int = 1000) -> Metrics:
             log.exception("Error creando JPG para ITMREF=%s", itmref)
 
         if i % 100 == 0:
-            log.info("Progreso: %d/%d | creados=%d | fallos=%d",
-                     i, m.missing_total, m.jpg_created_total, m.jpg_failed_total)
+            log.info(
+                "Progreso: %d/%d | creados=%d | fallos=%d",
+                i, m.missing_total, m.jpg_created_total, m.jpg_failed_total
+            )
 
     m.t_fetch_blobs_seconds = time.perf_counter() - t_fetch
     m.t_total_seconds = time.perf_counter() - t0
 
-    log.info("FIN sync | creados=%d | skipped=%d | fallos=%d",
-             m.jpg_created_total, m.jpg_skipped_exists_total, m.jpg_failed_total)
+    log.info(
+        "FIN sync | creados=%d | skipped=%d | fallos=%d",
+        m.jpg_created_total, m.jpg_skipped_exists_total, m.jpg_failed_total
+    )
     log.info("METRICS: %s", asdict(m))
+
+    _send_sync_email(m, dry_run=False)
     return m
+
+
+def _send_sync_email(m: Metrics, dry_run: bool) -> None:
+    """
+    Envía mail al finalizar el proceso, adjuntando el log de resultados.
+    """
+    status = "OK" if m.jpg_failed_total == 0 else "ERROR"
+    subject = f"[CBlob Sync] {status}" + (" (DRY RUN)" if dry_run else "")
+
+    body = (
+        "Proceso de sincronización finalizado.\n\n"
+        f"Dry run: {dry_run}\n"
+        f"Total DB: {m.db_itmrefs_total}\n"
+        f"Total NAS: {m.nas_jpg_total}\n"
+        f"Faltantes: {m.missing_total}\n"
+        f"Creados: {m.jpg_created_total}\n"
+        f"Saltados: {m.jpg_skipped_exists_total}\n"
+        f"Fallos: {m.jpg_failed_total}\n"
+        f"Tiempo total: {m.t_total_seconds:.2f}s\n"
+    )
+
+    try:
+        send_mail(
+            subject=subject,
+            body=body,
+            to=[x.strip() for x in MAIL_TO if x.strip()],
+            attachments=[RESULT_LOG_FILE],
+            sender=MAIL_FROM,
+            smtp_server=SMTP_SERVER,
+            smtp_port=int(SMTP_PORT),
+            smtp_user=SMTP_USER,
+            smtp_pass=SMTP_PASS,
+        )
+    except Exception:
+        # No queremos que el sync falle por culpa del email
+        log.exception("No se pudo enviar el mail de resumen del sync")

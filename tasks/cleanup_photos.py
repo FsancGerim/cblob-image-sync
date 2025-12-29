@@ -3,12 +3,22 @@ from __future__ import annotations
 from dataclasses import asdict
 from pathlib import Path
 
-from config import NAS_FOLDER, CLEANUP_LOG_FILE
+from config import (
+    NAS_FOLDER,
+    CLEANUP_LOG_FILE,
+    MAIL_TO,
+    MAIL_FROM,
+    SMTP_SERVER,
+    SMTP_PORT,
+    SMTP_USER,
+    SMTP_PASS,
+)
 from metrics.cleanup_metrics import CleanupMetrics
 from fs.images import get_base_and_ch
 from fs.result_writer import SyncResultWriter
 from logging_config import setup_logger
 from infra.smb import ensure_smb_connection
+from infra.email import send_mail
 
 log = setup_logger()
 
@@ -54,4 +64,38 @@ def run_cleanup(dry_run: bool = True, folder: Path = NAS_FOLDER) -> CleanupMetri
 
     log.info("FIN cleanup | deleted=%d | failed=%d", m.ch_deleted_total, m.ch_failed_total)
     log.info("CLEANUP METRICS: %s", asdict(m))
+
+    _send_cleanup_email(m, dry_run=dry_run, folder=Path(folder))
     return m
+
+
+def _send_cleanup_email(m: CleanupMetrics, dry_run: bool, folder: Path) -> None:
+    status = "OK" if m.ch_failed_total == 0 else "ERROR"
+    subject = f"[CBlob Cleanup] {status}" + (" (DRY RUN)" if dry_run else "")
+
+    body = (
+        "Proceso de limpieza finalizado.\n\n"
+        f"Carpeta: {folder}\n"
+        f"Dry run: {dry_run}\n\n"
+        f"Base JPG: {m.jpg_base_total}\n"
+        f"CH JPG: {m.jpg_ch_total}\n"
+        f"Pares detectados (base & ch): {m.pairs_total}\n"
+        f"Borrados: {m.ch_deleted_total}\n"
+        f"Fallos: {m.ch_failed_total}\n"
+    )
+
+    try:
+        send_mail(
+            subject=subject,
+            body=body,
+            to=[x.strip() for x in MAIL_TO if x.strip()],
+            attachments=[CLEANUP_LOG_FILE],
+            sender=MAIL_FROM,
+            smtp_server=SMTP_SERVER,
+            smtp_port=int(SMTP_PORT),
+            smtp_user=SMTP_USER,
+            smtp_pass=SMTP_PASS,
+        )
+    except Exception:
+        # No queremos que el cleanup falle por culpa del email
+        log.exception("No se pudo enviar el mail de resumen del cleanup")
