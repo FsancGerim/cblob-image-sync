@@ -44,12 +44,12 @@ def run_sync(dry_run: bool = True, chunk_size: int = 1000) -> Metrics:
     m.t_scan_nas_seconds = time.perf_counter() - t_scan
     m.nas_jpg_total = len(itmref_nas)
 
-    # 3) Diferencia
+    # 3) Diferencia (candidatos)
     missing = itmref_zpr - itmref_nas
     m.missing_total = len(missing)
 
     log.info(
-        "ZPRO=%d | NAS=%d | FALTANTES=%d | scan_nas=%.2fs",
+        "ZPRO=%d | NAS=%d | FALTAN_EN_NAS=%d | scan_nas=%.2fs",
         m.db_itmrefs_total, m.nas_jpg_total, m.missing_total, m.t_scan_nas_seconds
     )
 
@@ -58,55 +58,73 @@ def run_sync(dry_run: bool = True, chunk_size: int = 1000) -> Metrics:
         m.t_total_seconds = time.perf_counter() - t0
         log.info("METRICS: %s", asdict(m))
 
-        # Si NO quieres mandar mail en dry-run, comenta este bloque
         _send_sync_email(m, dry_run=True)
-
         return m
 
     output_folder = NAS_FOLDER
     log.info("OUTPUT_FOLDER=%s", output_folder)
 
-    # 4) Traer blobs y crear JPGs
+    # 4) Traer blobs y crear JPGs (por chunks para poder detectar NO_BLOB)
+    missing_list = sorted(missing)
+
     t_fetch = time.perf_counter()
-    for i, (itmref, blob) in enumerate(get_blobs_by_itmrefs(missing, chunk_size=chunk_size), start=1):
-        m.blobs_fetched_total += 1
-        out_file = output_folder / f"{itmref}_ch.jpg"
 
-        if out_file.exists():
-            m.jpg_skipped_exists_total += 1
-            result_writer.write("SKIPPED", itmref, out_file, "already exists")
-            continue
+    for start in range(0, len(missing_list), chunk_size):
+        chunk = missing_list[start:start + chunk_size]
+        chunk_set = set(chunk)
 
-        try:
-            t_w = time.perf_counter()
-            write_jpg(blob, out_file, overwrite=False)
-            m.t_write_jpg_seconds += (time.perf_counter() - t_w)
+        fetched_itmrefs: set[str] = set()
+
+        for itmref, blob in get_blobs_by_itmrefs(chunk_set, chunk_size=chunk_size):
+            fetched_itmrefs.add(itmref)
+            m.blobs_fetched_total += 1
+
+            out_file = output_folder / f"{itmref}_ch.jpg"
 
             if out_file.exists():
-                m.jpg_created_total += 1
-                result_writer.write("CREATED", itmref, out_file)
-            else:
+                m.jpg_skipped_exists_total += 1
+                result_writer.write("SKIPPED", itmref, out_file, "already exists")
+                continue
+
+            try:
+                t_w = time.perf_counter()
+                write_jpg(blob, out_file, overwrite=False)
+                m.t_write_jpg_seconds += (time.perf_counter() - t_w)
+
+                if out_file.exists():
+                    m.jpg_created_total += 1
+                    result_writer.write("CREATED", itmref, out_file)
+                else:
+                    m.jpg_failed_total += 1
+                    result_writer.write("FAILED", itmref, out_file, "not created (no exception)")
+                    log.warning("No se creó el JPG (sin excepción) para ITMREF=%s", itmref)
+
+            except Exception as e:
                 m.jpg_failed_total += 1
-                result_writer.write("FAILED", itmref, out_file, "not created (no exception)")
-                log.warning("No se creó el JPG (sin excepción) para ITMREF=%s", itmref)
+                result_writer.write("FAILED", itmref, out_file, str(e))
+                log.exception("Error creando JPG para ITMREF=%s", itmref)
 
-        except Exception as e:
-            m.jpg_failed_total += 1
-            result_writer.write("FAILED", itmref, out_file, str(e))
-            log.exception("Error creando JPG para ITMREF=%s", itmref)
+        # Los que estaban en ZPRO y faltaban en NAS, pero no existen en CBLOB
+        not_in_cblob = chunk_set - fetched_itmrefs
+        for itmref in sorted(not_in_cblob):
+            m.blobs_missing_total += 1
+            out_file = output_folder / f"{itmref}_ch.jpg"
+            result_writer.write("NO_BLOB", itmref, out_file, "not found in GERIMPORT.CBLOB")
 
-        if i % 100 == 0:
+        # progreso por chunk (opcional)
+        done = min(start + chunk_size, len(missing_list))
+        if done % 1000 == 0 or done == len(missing_list):
             log.info(
-                "Progreso: %d/%d | creados=%d | fallos=%d",
-                i, m.missing_total, m.jpg_created_total, m.jpg_failed_total
+                "Progreso chunks: %d/%d | creados=%d | no_blob=%d | fallos=%d",
+                done, len(missing_list), m.jpg_created_total, m.blobs_missing_total, m.jpg_failed_total
             )
 
     m.t_fetch_blobs_seconds = time.perf_counter() - t_fetch
     m.t_total_seconds = time.perf_counter() - t0
 
     log.info(
-        "FIN sync | creados=%d | skipped=%d | fallos=%d",
-        m.jpg_created_total, m.jpg_skipped_exists_total, m.jpg_failed_total
+        "FIN sync | creados=%d | skipped=%d | no_blob=%d | fallos=%d",
+        m.jpg_created_total, m.jpg_skipped_exists_total, m.blobs_missing_total, m.jpg_failed_total
     )
     log.info("METRICS: %s", asdict(m))
 
@@ -115,18 +133,17 @@ def run_sync(dry_run: bool = True, chunk_size: int = 1000) -> Metrics:
 
 
 def _send_sync_email(m: Metrics, dry_run: bool) -> None:
-    """
-    Envía mail al finalizar el proceso, adjuntando el log de resultados.
-    """
     status = "OK" if m.jpg_failed_total == 0 else "ERROR"
     subject = f"[CBlob Sync] {status}" + (" (DRY RUN)" if dry_run else "")
 
     body = (
         "Proceso de sincronización finalizado.\n\n"
         f"Dry run: {dry_run}\n"
-        f"Total DB: {m.db_itmrefs_total}\n"
+        f"Total ZPRO: {m.db_itmrefs_total}\n"
         f"Total NAS: {m.nas_jpg_total}\n"
-        f"Faltantes: {m.missing_total}\n"
+        f"Faltan en NAS: {m.missing_total}\n"
+        f"Blobs encontrados (CBLOB): {m.blobs_fetched_total}\n"
+        f"Sin blob en CBLOB: {m.blobs_missing_total}\n"
         f"Creados: {m.jpg_created_total}\n"
         f"Saltados: {m.jpg_skipped_exists_total}\n"
         f"Fallos: {m.jpg_failed_total}\n"
@@ -146,5 +163,4 @@ def _send_sync_email(m: Metrics, dry_run: bool) -> None:
             smtp_pass=SMTP_PASS,
         )
     except Exception:
-        # No queremos que el sync falle por culpa del email
         log.exception("No se pudo enviar el mail de resumen del sync")

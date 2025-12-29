@@ -21,7 +21,13 @@ def _get_connection():
     )
     return pyodbc.connect(conn_str, timeout=10, autocommit=True)
 
-def get_itmref_from(table_name: str):
+def _norm(s) -> str | None:
+    if s is None:
+        return None
+    v = str(s).strip()
+    return v or None
+
+def get_itmref_from(table_name: str) -> set[str]:
     if table_name == 'ZPROVEART':
         sql = """
         SELECT
@@ -39,17 +45,24 @@ def get_itmref_from(table_name: str):
         sql = "SELECT IDENT1_0 AS ITMREF_0 FROM GERIMPORT.CBLOB"
     else:
         raise ValueError(f"Tabla no soportada: {table_name}")
-    
+
     with _get_connection() as conn:
         cur = conn.cursor()
         cur.execute(sql)
-        return {str(itmref) for (itmref,) in cur}
+        out: set[str] = set()
+        for (itmref,) in cur:
+            v = _norm(itmref)
+            if v:
+                out.add(v)
+        return out
 
 def _chunks(seq: list[str], size: int):
     for i in range(0, len(seq), size):
         yield seq[i:i+size]
+
 def get_blobs_by_itmrefs(itmrefs: Iterable[str], chunk_size: int = 1000):
-    itmrefs = [str(x) for x in itmrefs]
+    # normaliza entrada (por si viene con espacios)
+    itmrefs = [x for x in (_norm(x) for x in itmrefs) if x]
 
     sql_template = """
         SELECT IDENT1_0 AS ITMREF_0, BLOB_0
@@ -66,6 +79,7 @@ def get_blobs_by_itmrefs(itmrefs: Iterable[str], chunk_size: int = 1000):
 
             cur.execute(sql, chunk)
             for itmref, blob in cur:
-                yield str(itmref), blob
-
-    
+                v = _norm(itmref)
+                if v is None:
+                    continue
+                yield v, blob

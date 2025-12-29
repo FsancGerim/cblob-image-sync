@@ -26,3 +26,26 @@
 2025-12-29 12:03:01 | INFO | cblob-image-sync | CLEANUP METRICS: {'scanned_files_total': 0, 'jpg_base_total': 136120, 'jpg_ch_total': 3152, 'pairs_total': 7, 'ch_deleted_total': 7, 'ch_failed_total': 0}
 2025-12-29 12:03:02 | INFO | cblob-image-sync | Mail enviado | subject=[CBlob Cleanup] OK | to=['fsanchez@gerimport.com']
 2025-12-29 12:03:02 | INFO | cblob-image-sync | CLEANUP METRICS: {'scanned_files_total': 0, 'jpg_base_total': 136120, 'jpg_ch_total': 3152, 'pairs_total': 7, 'ch_deleted_total': 7, 'ch_failed_total': 0}
+2025-12-29 12:10:24 | INFO | cblob-image-sync | Conectando a NAS \\192.168.1.82 como CONSULTA
+2025-12-29 12:10:24 | INFO | cblob-image-sync | Inicio sync | dry_run=True | NAS_FOLDER=\\192.168.1.82\srvfotos\Fotos\ImportadasPorNTV
+2025-12-29 12:10:39 | INFO | cblob-image-sync | ZPRO=70818 | NAS=139265 | FALTAN_EN_NAS=351 | scan_nas=14.01s
+2025-12-29 12:10:39 | INFO | cblob-image-sync | DRY RUN activo. Ejemplo faltantes: ['8445393625546', '8445393640365', '8445393451336', '8445393710174', '8445393639079', '8445393639420', '3665771136487', '8445393625522', '8445393640099', '3665771108965']
+2025-12-29 12:10:39 | INFO | cblob-image-sync | METRICS: {'db_itmrefs_total': 70818, 'nas_jpg_total': 139265, 'missing_total': 351, 'blobs_fetched_total': 0, 'blobs_missing_total': 0, 'jpg_created_total': 0, 'jpg_skipped_exists_total': 0, 'jpg_failed_total': 0, 't_scan_nas_seconds': 14.013183299975935, 't_fetch_blobs_seconds': 0.0, 't_write_jpg_seconds': 0.0, 't_total_seconds': 15.298866399971303}
+2025-12-29 12:10:40 | INFO | cblob-image-sync | Mail enviado | subject=[CBlob Sync] OK (DRY RUN) | to=['fsanchez@gerimport.com']
+2025-12-29 12:10:40 | INFO | cblob-image-sync | SYNC METRICS: {'db_itmrefs_total': 70818, 'nas_jpg_total': 139265, 'missing_total': 351, 'blobs_fetched_total': 0, 'blobs_missing_total': 0, 'jpg_created_total': 0, 'jpg_skipped_exists_total': 0, 'jpg_failed_total': 0, 't_scan_nas_seconds': 14.013183299975935, 't_fetch_blobs_seconds': 0.0, 't_write_jpg_seconds': 0.0, 't_total_seconds': 15.298866399971303}
+2025-12-29 12:11:46 | INFO | cblob-image-sync | Conectando a NAS \\192.168.1.82 como CONSULTA
+2025-12-29 12:11:46 | INFO | cblob-image-sync | Inicio sync | dry_run=False | NAS_FOLDER=\\192.168.1.82\srvfotos\Fotos\ImportadasPorNTV
+2025-12-29 12:11:59 | INFO | cblob-image-sync | ZPRO=70818 | NAS=139265 | FALTAN_EN_NAS=351 | scan_nas=10.04s
+2025-12-29 12:11:59 | INFO | cblob-image-sync | OUTPUT_FOLDER=\\192.168.1.82\srvfotos\Fotos\ImportadasPorNTV
+2025-12-29 12:12:00 | INFO | cblob-image-sync | Progreso chunks: 351/351 | creados=0 | no_blob=351 | fallos=0
+2025-12-29 12:12:00 | INFO | cblob-image-sync | FIN sync | creados=0 | skipped=0 | no_blob=351 | fallos=0
+2025-12-29 12:12:00 | INFO | cblob-image-sync | METRICS: {'db_itmrefs_total': 70818, 'nas_jpg_total': 139265, 'missing_total': 351, 'blobs_fetched_total': 0, 'blobs_missing_total': 351, 'jpg_created_total': 0, 'jpg_skipped_exists_total': 0, 'jpg_failed_total': 0, 't_scan_nas_seconds': 10.036690200009616, 't_fetch_blobs_seconds': 0.3677711999916937, 't_write_jpg_seconds': 0.0, 't_total_seconds': 13.681419200001983}
+2025-12-29 12:12:01 | INFO | cblob-image-sync | Mail enviado | subject=[CBlob Sync] OK | to=['fsanchez@gerimport.com']
+2025-12-29 12:12:01 | INFO | cblob-image-sync | SYNC METRICS: {'db_itmrefs_total': 70818, 'nas_jpg_total': 139265, 'missing_total': 351, 'blobs_fetched_total': 0, 'blobs_missing_total': 351, 'jpg_created_total': 0, 'jpg_skipped_exists_total': 0, 'jpg_failed_total': 0, 't_scan_nas_seconds': 10.036690200009616, 't_fetch_blobs_seconds': 0.3677711999916937, 't_write_jpg_seconds': 0.0, 't_total_seconds': 13.681419200001983}
+2025-12-29 12:17:28 | INFO | cblob-image-sync | Conectando a NAS \\192.168.1.82 como CONSULTA
+2025-12-29 12:17:28 | INFO | cblob-image-sync | Inicio sync | dry_run=True | NAS_FOLDER=\\192.168.1.82\srvfotos\Fotos\ImportadasPorNTV
+2025-12-29 12:17:42 | INFO | cblob-image-sync | ZPRO=70818 | NAS=139265 | FALTAN_EN_NAS=351 | scan_nas=13.15s
+2025-12-29 12:17:42 | INFO | cblob-image-sync | DRY RUN activo. Ejemplo faltantes: ['8445393713724', '8445393710341', '8445393639246', '8445393578941', '8445393107226', '8445393640150', '8445393639420', '8445393639161', '8445393713359', '8445393216683']
+2025-12-29 12:17:42 | INFO | cblob-image-sync | METRICS: {'db_itmrefs_total': 70818, 'nas_jpg_total': 139265, 'missing_total': 351, 'blobs_fetched_total': 0, 'blobs_missing_total': 0, 'jpg_created_total': 0, 'jpg_skipped_exists_total': 0, 'jpg_failed_total': 0, 't_scan_nas_seconds': 13.150958100013668, 't_fetch_blobs_seconds': 0.0, 't_write_jpg_seconds': 0.0, 't_total_seconds': 14.16485129998182}
+2025-12-29 12:17:43 | INFO | cblob-image-sync | Mail enviado | subject=[CBlob Sync] OK (DRY RUN) | to=['fsanchez@gerimport.com']
+2025-12-29 12:17:43 | INFO | cblob-image-sync | SYNC METRICS: {'db_itmrefs_total': 70818, 'nas_jpg_total': 139265, 'missing_total': 351, 'blobs_fetched_total': 0, 'blobs_missing_total': 0, 'jpg_created_total': 0, 'jpg_skipped_exists_total': 0, 'jpg_failed_total': 0, 't_scan_nas_seconds': 13.150958100013668, 't_fetch_blobs_seconds': 0.0, 't_write_jpg_seconds': 0.0, 't_total_seconds': 14.16485129998182}

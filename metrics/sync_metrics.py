@@ -7,6 +7,8 @@ class Metrics:
     missing_total: int = 0
 
     blobs_fetched_total: int = 0
+    blobs_missing_total: int = 0  
+
     jpg_created_total: int = 0
     jpg_skipped_exists_total: int = 0
     jpg_failed_total: int = 0
