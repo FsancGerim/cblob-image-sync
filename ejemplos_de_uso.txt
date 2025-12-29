@@ -1,0 +1,5 @@
+# Se le pasa folder pq es una tarea potencialmente peligrosa, borra archivos, debe permitirsele apuntar a otra carpeta por los test
+python -m main cleanup --folder "\\192.168.1.82\srvfotos\Fotos\ImportadasPorNTV" 
+
+python -m main sync --chunk-size 1000
+python -m main sync --dry-run

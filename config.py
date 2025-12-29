@@ -17,3 +17,9 @@ TEST_OUTPUT_FOLDER = Path(os.getenv("TEST_OUTPUT_FOLDER", ""))
 
 # LOGS
 RESULT_LOG_FILE = Path("logs/sync_results.log")
+CLEANUP_LOG_FILE = Path("logs/cleanup_results.log")
+
+# SMB
+NAS_SHARE = os.environ.get("NAS_SHARE")  
+NAS_USER = os.environ.get("NAS_USER")
+NAS_PASS = os.environ.get("NAS_PASS")
